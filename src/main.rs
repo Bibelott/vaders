@@ -1,3 +1,4 @@
+mod input;
 mod sprite;
 
 use std::mem::size_of;
@@ -10,7 +11,7 @@ use wgpu::{util::DeviceExt, Instance};
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::EventLoop;
-use winit::keyboard::{Key, NamedKey};
+use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 use winit::window::Window;
 
 use image::io::Reader as ImageReader;
@@ -380,10 +381,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ..Default::default()
                 });
 
-                player
-                    .as_mut()
-                    .unwrap()
-                    .move_by(&nalgebra_glm::vec2(0.01, 0.0), &context);
+                if input::is_key_pressed(KeyCode::ArrowRight) {
+                    player
+                        .as_mut()
+                        .unwrap()
+                        .move_by(&nalgebra_glm::vec2(0.07, 0.0), &context);
+                }
+                if input::is_key_pressed(KeyCode::ArrowLeft) {
+                    player
+                        .as_mut()
+                        .unwrap()
+                        .move_by(&nalgebra_glm::vec2(-0.07, 0.0), &context);
+                }
 
                 let sprites = vec![player.as_ref().unwrap()];
 
@@ -409,6 +418,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             | WindowEvent::CloseRequested => {
                 target.exit();
+            }
+
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        physical_key: PhysicalKey::Code(key),
+                        state,
+                        repeat: false,
+                        ..
+                    },
+                ..
+            } => {
+                input::register_key_state(key, state);
             }
 
             _ => {}
