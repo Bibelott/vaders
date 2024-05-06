@@ -1,10 +1,12 @@
 mod input;
+mod player;
 mod sprite;
 
 use std::mem::size_of;
 use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
+use player::Player;
 use sprite::Sprite;
 use wgpu::include_wgsl;
 use wgpu::{util::DeviceExt, Instance};
@@ -323,34 +325,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut surface = None;
     let mut renderer = None;
 
-    let img = ImageReader::open("player.png")
-        .unwrap()
-        .decode()
-        .unwrap()
-        .flipv()
-        .to_rgba8();
-    let texels = bytemuck::cast_slice(img.as_raw());
-
-    let texture = context.device.create_texture_with_data(
-        &context.queue,
-        &wgpu::TextureDescriptor {
-            label: None,
-            size: wgpu::Extent3d {
-                width: img.width(),
-                height: img.height(),
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        },
-        wgpu::util::TextureDataOrder::MipMajor,
-        texels,
-    );
-
     let sampler = context.device.create_sampler(&wgpu::SamplerDescriptor {
         ..Default::default()
     });
@@ -363,14 +337,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             renderer = Some(Renderer::init(&context, surface.as_ref().unwrap().config()));
 
-            player = Some(Sprite::new(
-                nalgebra_glm::vec2(30.0, 30.0),
-                nalgebra_glm::vec2(13.0, 8.0),
-                &texture,
-                &renderer.as_ref().unwrap().pipeline.get_bind_group_layout(1),
-                &sampler,
-                &context,
-            ));
+            player = Some(Player::init(&context, &sampler, renderer.as_ref().unwrap()));
         }
         Event::WindowEvent { event, .. } => match event {
             WindowEvent::RedrawRequested => {
@@ -381,20 +348,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ..Default::default()
                 });
 
-                if input::is_key_pressed(KeyCode::ArrowRight) {
-                    player
-                        .as_mut()
-                        .unwrap()
-                        .move_by(&nalgebra_glm::vec2(0.07, 0.0), &context);
-                }
-                if input::is_key_pressed(KeyCode::ArrowLeft) {
-                    player
-                        .as_mut()
-                        .unwrap()
-                        .move_by(&nalgebra_glm::vec2(-0.07, 0.0), &context);
-                }
+                player.as_mut().unwrap().update(&context);
 
-                let sprites = vec![player.as_ref().unwrap()];
+                let sprites = vec![player.as_ref().unwrap().get_sprite()];
 
                 renderer.as_mut().unwrap().render(&view, &context, sprites);
 
